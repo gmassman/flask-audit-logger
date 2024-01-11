@@ -27,7 +27,7 @@ from sqlalchemy.orm import ColumnProperty, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import TextClause
 
-from flask_audit_logger import alembic
+from flask_audit_logger import alembic_hooks
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -95,7 +95,7 @@ class AuditLogger(object):
         self.activity_cls = _activity_model_factory(db.Model, schema, self.transaction_cls)
         self.versioned_tables = _detect_versioned_tables(db)
         self.attach_listeners()
-        self.initialize_alembic_operations()
+        self.initialize_alembic_hooks()
 
     def attach_listeners(self):
         """Listeners save transaction records with actor_ids when versioned tables are affected.
@@ -104,10 +104,10 @@ class AuditLogger(object):
         event.listen(Session, "before_flush", self.receive_before_flush)
         event.listen(Session, "do_orm_execute", self.receive_do_orm_execute)
 
-    def initialize_alembic_operations(self):
-        alembic.setup_schema(self)
-        alembic.setup_functions_and_triggers(self)
-        self.writer = alembic.init_migration_ops(self.schema)
+    def initialize_alembic_hooks(self):
+        alembic_hooks.setup_schema(self)
+        alembic_hooks.setup_functions_and_triggers(self)
+        self.writer = alembic_hooks.init_migration_ops(self.schema)
 
     def process_revision_directives(self, context, revision, directives):
         if self.writer:

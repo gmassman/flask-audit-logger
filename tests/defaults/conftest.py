@@ -8,7 +8,6 @@ from tests.utils import REPO_ROOT, run_audit_logger_migrations
 ALEMBIC_CONFIG = REPO_ROOT / "tests" / "defaults" / "alembic_config"
 
 
-# @pytest.fixture
 @pytest.fixture(scope="session")
 def test_client():
     test_client = app.test_client()
