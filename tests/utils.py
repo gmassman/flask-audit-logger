@@ -73,9 +73,7 @@ def run_alembic_command(
 def clear_alembic_migrations(db, alembic_config):
     with db.engine.begin() as connection:
         connection.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
-        connection.execute(
-            text("DROP SCHEMA IF EXISTS audit_logs CASCADE; CREATE SCHEMA audit_logs;")
-        )
+        connection.execute(text("DROP SCHEMA IF EXISTS audit_logs CASCADE"))
 
     versions_root = alembic_config / "versions"
 

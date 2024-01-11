@@ -15,9 +15,7 @@ class TestAuditLoggerAlembicHooks:
         upgrade = parts[-2]
         assert "def upgrade():" in upgrade
         assert "op.init_audit_logger_extension('btree_gist')" in upgrade
-        assert (
-            "op.init_audit_logger_schema()" not in upgrade
-        )  # only present when separate schema configured
+        assert "op.init_audit_logger_schema()" in upgrade
         assert "op.create_table('transaction'" in upgrade
         assert "op.create_table('activity'" in upgrade
         assert (
