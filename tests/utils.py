@@ -1,3 +1,4 @@
+from argparse import Namespace
 import os
 import shutil
 from contextlib import contextmanager, redirect_stdout
@@ -54,7 +55,9 @@ def run_alembic_command(
 
     stdout = StringIO()
 
-    alembic_cfg = Config(alembic_config / "alembic.ini")
+    alembic_cfg = Config(
+        alembic_config / "alembic.ini", cmd_opts=Namespace(command=command, **command_kwargs)
+    )
 
     # Make double sure alembic references the test database
     alembic_cfg.set_main_option("sqlalchemy.url", engine.url.render_as_string(hide_password=False))
@@ -70,9 +73,7 @@ def run_alembic_command(
 def clear_alembic_migrations(db, alembic_config):
     with db.engine.begin() as connection:
         connection.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
-        connection.execute(
-            text("DROP SCHEMA IF EXISTS audit_logs CASCADE; CREATE SCHEMA audit_logs;")
-        )
+        connection.execute(text("DROP SCHEMA IF EXISTS audit_logs CASCADE"))
 
     versions_root = alembic_config / "versions"
 

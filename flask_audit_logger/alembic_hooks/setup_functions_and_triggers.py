@@ -129,7 +129,7 @@ def setup_functions_and_triggers(audit_logger):
             f"""
             SELECT 
                 format(
-                    '%%s(%%s)',
+                    '%s(%s)',
                     replace(p.oid::regproc::TEXT, '{audit_logger.prefix}', ''),
                     pg_get_function_identity_arguments(p.oid)
                 ) AS signature
@@ -161,7 +161,7 @@ def setup_functions_and_triggers(audit_logger):
             """
             SELECT event_object_table, trigger_name, action_statement
             FROM information_schema.triggers
-            WHERE trigger_name LIKE 'audit_trigger%%'
+            WHERE trigger_name LIKE 'audit_trigger%'
         """
         )
 

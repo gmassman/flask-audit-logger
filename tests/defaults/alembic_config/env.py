@@ -13,17 +13,16 @@ config = context.config
 # This line sets up loggers basically.
 fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-# target_metadata = MetaData()
 target_metadata = db.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+def process_revision_directives(context, revision, directives):
+    audit_logger.process_revision_directives(context, revision, directives)
+    if getattr(config.cmd_opts, "autogenerate", False):
+        script = directives[0]
+        if script.upgrade_ops.is_empty():
+            directives[:] = []
+            print("No changes in schema detected.")
 
 
 def run_migrations_online():
@@ -44,7 +43,7 @@ def run_migrations_online():
             connection=connection,
             target_metadata=target_metadata,
             include_schemas=True,
-            process_revision_directives=audit_logger.process_revision_directives,
+            process_revision_directives=process_revision_directives,
         )
 
         with context.begin_transaction():
