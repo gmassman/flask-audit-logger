@@ -1,0 +1,31 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - edited
+
+
+jobs:
+  version_check:
+    name: Version Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Check for new version in flask_audit_logger/__init__.py
+        run: |
+          PACKAGE_VERSION=$(\
+            grep '__version__' flask_audit_logger/__init__.py \
+            | awk -F'=' '{ gsub(/"| /,""); print "v"$2"" }' \
+          )
+          git fetch --unshallow
+          if git tag --list | grep -q $PACKAGE_VERSION; then
+            echo "::error Package version is already an existing tag, please bump __version__ string"
+            exit 1
+          fi
