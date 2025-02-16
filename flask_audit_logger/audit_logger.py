@@ -1,9 +1,12 @@
+from datetime import datetime
 import os
 import string
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Any, Callable, final
 
+from alembic.autogenerate.rewriter import Rewriter
 from flask import request
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import (
@@ -23,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, ExcludeConstraint, insert
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import ColumnProperty, relationship
+from sqlalchemy.orm import ColumnProperty, Mapped, mapped_column, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import TextClause
 
@@ -43,7 +46,9 @@ class PGExtension:
 
     @property
     def create_sql(self):
-        return text(f"CREATE EXTENSION IF NOT EXISTS {self.signature} WITH SCHEMA {self.schema}")
+        return text(
+            f"CREATE EXTENSION IF NOT EXISTS {self.signature} WITH SCHEMA {self.schema}"
+        )
 
     @property
     def drop_sql(self):
@@ -58,7 +63,9 @@ class PGFunction:
 
     @property
     def drop_sql(self):
-        return text(f'DROP FUNCTION IF EXISTS "{self.schema}"."{self.signature}" CASCADE')
+        return text(
+            f'DROP FUNCTION IF EXISTS "{self.schema}"."{self.signature}" CASCADE'
+        )
 
 
 @dataclass
@@ -73,17 +80,18 @@ class PGTrigger:
         return text(f'DROP TRIGGER IF EXISTS "{self.signature}" ON "{self.table_name}"')
 
 
-class AuditLogger(object):
-    _actor_cls = None
-    writer = None
+@final
+class AuditLogger:
+    _actor_cls: str | None = None
+    writer: Rewriter | None = None
 
     def __init__(
         self,
-        db,
-        get_actor_id=None,
-        get_client_addr=None,
-        actor_cls=None,
-        schema=None,
+        db: SQLAlchemy,
+        get_actor_id: Callable[[], Any] | None = None,
+        get_client_addr: Callable[[], str | None] | None = None,
+        actor_cls: str | None = None,
+        schema: str | None = None,
     ):
         self._actor_cls = actor_cls or "User"
         self.get_actor_id = get_actor_id or _default_actor_id
@@ -91,8 +99,12 @@ class AuditLogger(object):
         self.schema = schema or "public"
         self.audit_logger_disabled = False
         self.db = db
-        self.transaction_cls = _transaction_model_factory(db.Model, schema, self.actor_cls)
-        self.activity_cls = _activity_model_factory(db.Model, schema, self.transaction_cls)
+        self.transaction_cls = _transaction_model_factory(
+            db.Model, schema, self.actor_cls
+        )
+        self.activity_cls = _activity_model_factory(
+            db.Model, schema, self.transaction_cls
+        )
         self.versioned_tables = _detect_versioned_tables(db)
         self.attach_listeners()
         self.initialize_alembic_hooks()
@@ -226,13 +238,17 @@ class AuditLogger(object):
 
     @contextmanager
     def disable(self, session):
-        session.execute(text("SET LOCAL flask_audit_logger.enable_versioning = 'false'"))
+        session.execute(
+            text("SET LOCAL flask_audit_logger.enable_versioning = 'false'")
+        )
         self.audit_logger_disabled = True
         try:
             yield
         finally:
             self.audit_logger_disabled = False
-            session.execute(text("SET LOCAL flask_audit_logger.enable_versioning = 'true'"))
+            session.execute(
+                text("SET LOCAL flask_audit_logger.enable_versioning = 'true'")
+            )
 
     def render_sql_template(
         self, tmpl_name: str, as_text: bool = True, **kwargs
@@ -242,9 +258,9 @@ class AuditLogger(object):
         context = dict(schema=self.schema)
 
         context["schema_prefix"] = "{}.".format(self.schema)
-        context["revoke_cmd"] = ("REVOKE ALL ON {schema_prefix}activity FROM public;").format(
-            **context
-        )
+        context["revoke_cmd"] = (
+            "REVOKE ALL ON {schema_prefix}activity FROM public;"
+        ).format(**context)
 
         sql = tmpl.substitute(**context, **kwargs)
 
@@ -260,7 +276,8 @@ class AuditLogger(object):
             or orm_execute_state.is_delete
         )
         affects_versioned_table = any(
-            m.local_table in self.versioned_tables for m in orm_execute_state.all_mappers
+            m.local_table in self.versioned_tables
+            for m in orm_execute_state.all_mappers
         )
         if is_write and affects_versioned_table:
             self.save_transaction(orm_execute_state.session)
@@ -311,18 +328,19 @@ def _transaction_model_factory(base, schema, actor_cls):
         actor_pk = inspect(actor_cls).primary_key[0]
         actor_fk = ForeignKey(f"{actor_cls.__table__.name}.{actor_pk.name}")
 
+    @final
     class AuditLogTransaction(base):
         __tablename__ = "transaction"
 
-        id = Column(BigInteger, primary_key=True)
-        native_transaction_id = Column(BigInteger)
-        issued_at = Column(DateTime)
-        client_addr = Column(INET)
+        id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+        native_transaction_id: Mapped[int] = mapped_column(BigInteger)
+        issued_at: Mapped[datetime] = mapped_column(DateTime)
+        client_addr: Mapped[str] = mapped_column(INET)
         if actor_cls:
-            actor_id = Column(actor_pk.type, actor_fk)
+            actor_id: Mapped[Any] = mapped_column(actor_pk.type, actor_fk)
             actor = relationship(actor_cls)
         else:
-            actor_id = Column(Text)
+            actor_id: Mapped[str] = mapped_column(Text)
 
         __table_args__ = (
             ExcludeConstraint(
@@ -345,6 +363,7 @@ def _transaction_model_factory(base, schema, actor_cls):
 
 
 def _activity_model_factory(base, schema_name, transaction_cls):
+    @final
     class AuditLogActivity(base):
         __tablename__ = "activity"
         __table_args__ = {"schema": schema_name}
@@ -374,7 +393,7 @@ def _activity_model_factory(base, schema_name, transaction_cls):
             return cls.old_data + cls.changed_data
 
         def __repr__(self):
-            return ("<{cls} table_name={table_name!r} " "id={id!r}>").format(
+            return ("<{cls} table_name={table_name!r} id={id!r}>").format(
                 cls=self.__class__.__name__, table_name=self.table_name, id=self.id
             )
 

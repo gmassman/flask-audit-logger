@@ -53,3 +53,6 @@ profile = "black"
 line_length = 99
 known_first_party = ["flask_audit_logger", "tests"]
 multi_line_output = 3
+
+[tool.basedpyright]
+reportExplicitAny = false
