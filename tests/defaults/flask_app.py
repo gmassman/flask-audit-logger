@@ -39,6 +39,13 @@ class Article(db.Model):
     name: Mapped[str]
 
 
+class DynamicModificationModel(db.Model):
+    __tablename__ = "dynamic_modification_model"
+    __table_args__ = ({"info": {"versioned": {}}},)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+
 @login_manager.user_loader
 def load_user(id):
     return db.session.get(User, id)
