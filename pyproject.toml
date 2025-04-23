@@ -1,5 +1,5 @@
 [build-system]
-requires      = ["hatchling"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
@@ -9,27 +9,25 @@ description = "Audit logs using Flask-SQLAlchemy and PostgreSQL."
 readme = "README.md"
 license = "bsd-2-clause"
 requires-python = ">=3.10"
-authors = [
-    { name = "Garrett Massman", email = "gmassman20@gmail.com" },
-]
+authors = [{ name = "Garrett Massman", email = "gmassman20@gmail.com" }]
 classifiers = [
-    "Environment :: Web Environment",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "SQLAlchemy>=1.4",
-    "Flask>=2.3",
-    "Flask-SQLAlchemy>=3.0",
-    "Alembic>=1.13",
+  "SQLAlchemy>=1.4",
+  "Flask>=2.3",
+  "Flask-SQLAlchemy>=3.0",
+  "Alembic>=1.13",
 ]
 
 [project.urls]
@@ -39,11 +37,7 @@ Homepage = "https://github.com/gmassman/flask-audit-logger"
 path = "flask_audit_logger/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/CHANGES.md",
-    "/flask_audit_logger",
-    "/tests",
-]
+include = ["/CHANGES.md", "/flask_audit_logger", "/tests"]
 
 [tool.black]
 line-length = 99

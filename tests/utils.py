@@ -56,7 +56,8 @@ def run_alembic_command(
     stdout = StringIO()
 
     alembic_cfg = Config(
-        alembic_config / "alembic.ini", cmd_opts=Namespace(command=command, **command_kwargs)
+        alembic_config / "alembic.ini",
+        cmd_opts=Namespace(command=command, **command_kwargs),
     )
 
     # Make double sure alembic references the test database
@@ -67,6 +68,7 @@ def run_alembic_command(
         alembic_cfg.attributes["connection"] = connection
         with redirect_stdout(stdout):
             command_func(alembic_cfg, **command_kwargs)
+
     return stdout.getvalue()
 
 

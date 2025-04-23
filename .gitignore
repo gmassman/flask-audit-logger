@@ -61,3 +61,7 @@ target/
 .venv/
 .pytest_cache/
 .ruff_cache/
+
+tmp/
+.envrc
+.aider*

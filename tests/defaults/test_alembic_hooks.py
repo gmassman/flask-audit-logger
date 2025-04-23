@@ -1,7 +1,10 @@
 import pytest
 
+from sqlalchemy import Float
+from sqlalchemy.orm import mapped_column
+
 from tests.defaults.conftest import ALEMBIC_CONFIG
-from tests.defaults.flask_app import db
+from tests.defaults.flask_app import db, DynamicModificationModel
 from tests.utils import run_alembic_command
 
 
@@ -72,3 +75,60 @@ class TestAuditLoggerAlembicHooks:
 
         assert "versions/2_test.py" not in output
         assert "No changes in schema detected" in output
+
+    def test_detects_new_column(self):
+        # Dynamically add height column to a model specifically created for this test
+        DynamicModificationModel.height = mapped_column(Float, nullable=True)
+
+        output = run_alembic_command(
+            engine=db.engine,
+            command="revision",
+            command_kwargs={
+                "autogenerate": True,
+                "rev_id": "2",
+                "message": "add_height",
+            },
+            alembic_config=ALEMBIC_CONFIG,
+        )
+
+        assert "versions/2_add_height.py" in output
+
+        migration_file = ALEMBIC_CONFIG / "versions" / "2_add_height.py"
+        assert migration_file.exists()
+
+        with open(migration_file) as f:
+            migration_contents = f.read()
+
+        # Check upgrade contains the new column operations
+        parts = migration_contents.split("\n\n")
+        upgrade = parts[-2]
+        assert (
+            "op.add_column('dynamic_modification_model', sa.Column('height', sa.Float(), nullable=True))"
+            in upgrade
+        )
+        assert (
+            "op.add_column_to_activity('dynamic_modification_model', 'height', default_value=None)"
+            in upgrade
+        )
+
+        # Check downgrade removes the column
+        downgrade = parts[-1]
+        assert (
+            "op.remove_column_from_activity('dynamic_modification_model', 'height')" in downgrade
+        )
+        assert "op.drop_column('dynamic_modification_model', 'height')" in downgrade
+
+        # Test that upgrade and downgrade execute without errors
+        run_alembic_command(
+            engine=db.engine,
+            command="upgrade",
+            command_kwargs={"revision": "head"},
+            alembic_config=ALEMBIC_CONFIG,
+        )
+
+        run_alembic_command(
+            engine=db.engine,
+            command="downgrade",
+            command_kwargs={"revision": "-1"},
+            alembic_config=ALEMBIC_CONFIG,
+        )
