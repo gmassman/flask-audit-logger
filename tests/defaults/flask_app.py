@@ -26,7 +26,7 @@ login_manager = LoginManager()
 
 class User(db.Model, UserMixin):
     __tablename__ = "user"
-    __table_args__ = ({"info": {"versioned": {}}},)
+    __table_args__ = ({"info": {"audit_logged": {}}},)
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     age: Mapped[Optional[int]] = mapped_column(default=None)
@@ -34,16 +34,9 @@ class User(db.Model, UserMixin):
 
 class Article(db.Model):
     __tablename__ = "article"
-    __table_args__ = ({"info": {"versioned": {}}},)
+    __table_args__ = ({"info": {"audit_logged": {}}},)
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
-
-
-class DynamicModificationModel(db.Model):
-    __tablename__ = "dynamic_modification_model"
-    __table_args__ = ({"info": {"versioned": {}}},)
-
-    id: Mapped[int] = mapped_column(primary_key=True)
 
 
 @login_manager.user_loader

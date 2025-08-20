@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 def setup_functions_and_triggers(audit_logger):
     """The comparator at the end controls which functions and triggers
-    need to be added/removed based on the current audit_logger.versioned_tables."""
+    need to be added/removed based on the current audit_logger.audit_logged_tables."""
 
     """ PG Functions """
 
@@ -170,9 +170,9 @@ def setup_functions_and_triggers(audit_logger):
             trigger = Trigger(*row)
             triggers_per_table[trigger.table].append(trigger)
 
-        for table in audit_logger.versioned_tables:
+        for table in audit_logger.audit_logged_tables:
             trigger = next((tr for tr in triggers_per_table[table.name]), None)
-            excluded_columns_in_app = table.info["versioned"].get("exclude", [])
+            excluded_columns_in_app = table.info["audit_logged"].get("exclude", [])
 
             if not trigger:
                 upgrade_ops.ops.append(
@@ -194,7 +194,7 @@ def setup_functions_and_triggers(audit_logger):
                     )
 
         for table_name, triggers in triggers_per_table.items():
-            if table_name not in {t.name for t in audit_logger.versioned_tables}:
+            if table_name not in {t.name for t in audit_logger.audit_logged_tables}:
                 upgrade_ops.ops.append(
                     RemoveAuditLoggerTriggers(
                         table_name,
