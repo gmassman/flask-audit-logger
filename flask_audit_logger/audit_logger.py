@@ -113,14 +113,6 @@ class AuditLogger(object):
         return f"{self.schema}." if self.schema != "public" else ""
 
     @cached_property
-    def pg_entities(self):
-        return [
-            self.pg_btree_gist_extension,
-            *self.pg_functions,
-            *self.pg_triggers,
-        ]
-
-    @cached_property
     def pg_functions(self):
         return [
             self.pg_get_setting,
@@ -139,7 +131,7 @@ class AuditLogger(object):
             target_schema = table.schema or "public"
             audit_logged_info = table.info.get("audit_logged", {})
             excluded_columns = ""
-            if "exclude" in audit_logged_info:
+            if isinstance(audit_logged_info, dict) and "exclude" in audit_logged_info:
                 joined_excludes = ",".join(audit_logged_info["exclude"])
                 excluded_columns = "'{" + joined_excludes + "}'"
 
@@ -408,7 +400,7 @@ def _detect_audit_logged_tables(db: SQLAlchemy) -> set[Table]:
     audit_logged_tables = set()
 
     for table in db.metadata.tables.values():
-        if table.info.get("audit_logged") is not None:
+        if table.info.get("audit_logged") not in [None, False]:
             audit_logged_tables.add(table)
 
     return audit_logged_tables
@@ -424,7 +416,11 @@ def _is_session_modified(session: Session, audit_logged_tables: set[Table]) -> b
 
 def _is_entity_modified(entity) -> bool:
     audit_logged_info = entity.__table__.info.get("audit_logged")
-    excluded_cols = set(audit_logged_info.get("exclude", []))
+    excluded_cols = (
+        set()
+        if not isinstance(audit_logged_info, dict)
+        else set(audit_logged_info.get("exclude", []))
+    )
     modified_cols = {column.name for column in _modified_columns(entity)}
 
     return bool(modified_cols - excluded_cols)

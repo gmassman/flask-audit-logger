@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.12
+          python-version: 3.13
       - name: Check for new version in flask_audit_logger/__init__.py
         run: |
           PACKAGE_VERSION=$(\

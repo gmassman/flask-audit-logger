@@ -26,7 +26,7 @@ login_manager = LoginManager()
 
 class User(db.Model, UserMixin):
     __tablename__ = "user"
-    __table_args__ = ({"info": {"audit_logged": {}}},)
+    __table_args__ = ({"info": {"audit_logged": True}},)
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     age: Mapped[Optional[int]] = mapped_column(default=None)
@@ -34,7 +34,7 @@ class User(db.Model, UserMixin):
 
 class Article(db.Model):
     __tablename__ = "article"
-    __table_args__ = ({"info": {"audit_logged": {}}},)
+    __table_args__ = ({"info": {"audit_logged": True}},)
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
 

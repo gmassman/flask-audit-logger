@@ -172,7 +172,12 @@ def setup_functions_and_triggers(audit_logger):
 
         for table in audit_logger.audit_logged_tables:
             trigger = next((tr for tr in triggers_per_table[table.name]), None)
-            excluded_columns_in_app = table.info["audit_logged"].get("exclude", [])
+            audit_logged_info = table.info["audit_logged"]
+            excluded_columns_in_app = (
+                []
+                if not isinstance(audit_logged_info, dict)
+                else audit_logged_info.get("exclude", [])
+            )
 
             if not trigger:
                 upgrade_ops.ops.append(

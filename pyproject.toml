@@ -20,6 +20,7 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -47,3 +48,21 @@ profile = "black"
 line_length = 99
 known_first_party = ["flask_audit_logger", "tests"]
 multi_line_output = 3
+
+[dependency-groups]
+dev = [
+    "alembic~=1.13",
+    "black>=23.12",
+    "flask~=3.0",
+    "flask-login~=0.6",
+    "flask-sqlalchemy~=3.1",
+    "ipdb>=0.13.13",
+    "isort>=5.13",
+    "psycopg~=3.1",
+    "psycopg2~=2.9",
+    "pytest>=7.4",
+    "ruff~=0.1.11",
+    "setuptools>=80.9.0",
+    "sqlalchemy~=2.0",
+    "tox>=4.30.2",
+]

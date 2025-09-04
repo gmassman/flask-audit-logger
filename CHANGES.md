@@ -9,6 +9,9 @@
 - Dropped support for mutating audit logged table and column names
 - Renamed primary configuration key on models from "versioned" to "audit_logged"
 - Dropped `jsonb_change_key_name` functions
+- Support `{"audit_logged": True}` configuration
+- Support python 3.13
+- Use uv for development dependency management
 
 # 1.0.0 (2023-12-29)
 

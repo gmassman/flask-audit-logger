@@ -168,20 +168,23 @@ Create a virtualenv with the python version specified in specified in .tool-vers
 
 ```bash
 asdf install
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.dev
+uv sync --dev
 ```
 
 Next, create a .envrc with test database credentials then run the tests.
 
 ```bash
 direnv edit .
-> FLASK_AUDIT_LOGGER_TEST_USER=garrett  # use whatever postgres user you prefer
-> FLASK_AUDIT_LOGGER_TEST_DB=flask_audit_logger_test
+> export FLASK_AUDIT_LOGGER_TEST_USER=garrett  # use whatever postgres user you prefer
+> export FLASK_AUDIT_LOGGER_TEST_DB=flask_audit_logger_test
 
 createdb $FLASK_AUDIT_LOGGER_TEST_DB
+
+# Run a subset of the test suite using default settings
 pytest tests/defaults
+
+# Run the entire test suite, including linting checks
+tox
 ```
 
 Note that multiple folders exist in the test module.
