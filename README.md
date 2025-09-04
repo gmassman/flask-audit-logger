@@ -32,7 +32,7 @@ db = SQLAlchemy()
 
 class User(db.Model):
     __tablename__ = "users"
-    __table_args__ = ({"info": {"audit_logged": {}}},)
+    __table_args__ = ({"info": {"audit_logged": True}},)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, auto_increment=True)
     name: Mapped[str]
 
@@ -41,7 +41,7 @@ class User(db.Model):
 audit_logger = AuditLogger(db)
 ```
 
-Identify the tables you want audited by adding `{"info": {"audit_logged": {}}}` to a model's `__table_args__`.
+Identify the tables you want audited by adding `{"info": {"audit_logged": True}}` to a model's `__table_args__`.
 The `"audit_logged"` key determines which tables get database triggers.
 
 Finally, run the migration which will create audit tables, functions, and triggers.
@@ -52,7 +52,7 @@ flask db migrate -m 'setup audit_logger'
 flask db upgrade
 ```
 
-If you need an audit trail for another table in the future, add `{"info": {"audit_logged": {}}` to the `__table_args__` tuple.
+If you need an audit trail for another table in the future, add `{"info": {"audit_logged": True}` to the `__table_args__` tuple.
 When you generate the next migration, the newly audit logger tracked table will be detected and the correct triggers will get created.
 
 ## Features
@@ -131,6 +131,7 @@ print(activity.transaction.actor)
 
 You may want to ignore version tracking on specific database columns.
 This can be done by adding `"exclude"` with a list of column names to `__table_args__`.
+In this case replace `{"audit_logged": True}` with your configuration dict.
 
 ```python
 # app/models.py
