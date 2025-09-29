@@ -13,6 +13,8 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    MetaData,
+    String,
     Table,
     Text,
     event,
@@ -22,7 +24,6 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, ExcludeConstraint, insert
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import ColumnProperty, relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.elements import TextClause
@@ -75,7 +76,6 @@ class PGTrigger:
 
 class AuditLogger(object):
     _actor_cls = None
-    writer = None
 
     def __init__(
         self,
@@ -93,12 +93,12 @@ class AuditLogger(object):
         self.db = db
         self.transaction_cls = _transaction_model_factory(db.Model, schema, self.actor_cls)
         self.activity_cls = _activity_model_factory(db.Model, schema, self.transaction_cls)
-        self.versioned_tables = _detect_versioned_tables(db)
+        self.audit_logged_tables = _detect_audit_logged_tables(db)
         self.attach_listeners()
         self.initialize_alembic_hooks()
 
     def attach_listeners(self):
-        """Listeners save transaction records with actor_ids when versioned tables are affected.
+        """Listeners save transaction records with actor_ids when audit_logged tables are affected.
         Flush events occur when a mapped object is created or modified. ORM Execute events occur
         when an insert()/update()/delete() is passed to session.execute()."""
         event.listen(Session, "before_flush", self.receive_before_flush)
@@ -107,30 +107,16 @@ class AuditLogger(object):
     def initialize_alembic_hooks(self):
         alembic_hooks.setup_schema(self)
         alembic_hooks.setup_functions_and_triggers(self)
-        self.writer = alembic_hooks.init_migration_ops(self.schema)
-
-    def process_revision_directives(self, context, revision, directives):
-        if self.writer:
-            self.writer.process_revision_directives(context, revision, directives)
 
     @property
     def prefix(self):
         return f"{self.schema}." if self.schema != "public" else ""
 
     @cached_property
-    def pg_entities(self):
-        return [
-            self.pg_btree_gist_extension,
-            *self.pg_functions,
-            *self.pg_triggers,
-        ]
-
-    @cached_property
     def pg_functions(self):
         return [
             self.pg_get_setting,
             self.pg_jsonb_subtract,
-            self.pg_jsonb_change_key_name,
             self.pg_create_activity,
         ]
 
@@ -141,12 +127,12 @@ class AuditLogger(object):
     @cached_property
     def pg_triggers_per_table(self):
         triggers_per_table = {}
-        for table in self.versioned_tables:
+        for table in self.audit_logged_tables:
             target_schema = table.schema or "public"
-            versioned = table.info.get("versioned", {})
+            audit_logged_info = table.info.get("audit_logged", {})
             excluded_columns = ""
-            if "exclude" in versioned:
-                joined_excludes = ",".join(versioned["exclude"])
+            if isinstance(audit_logged_info, dict) and "exclude" in audit_logged_info:
+                joined_excludes = ",".join(audit_logged_info["exclude"])
                 excluded_columns = "'{" + joined_excludes + "}'"
 
             triggers_per_table[table.name] = [
@@ -209,19 +195,36 @@ class AuditLogger(object):
         )
 
     @property
-    def pg_jsonb_change_key_name(self) -> PGFunction:
-        return PGFunction(
-            schema=self.schema,
-            signature="jsonb_change_key_name(data jsonb, old_key text, new_key text)",
-            create_sql=self.render_sql_template("jsonb_change_key_name.sql"),
-        )
-
-    @property
     def pg_create_activity(self) -> PGFunction:
         return PGFunction(
             schema=self.schema,
             signature="create_activity()",
             create_sql=self.render_sql_template("create_activity.sql"),
+        )
+
+    @property
+    def activity_table(self):
+        """
+        Return a table usable in caller queries, for example:
+
+        activity_table = audit_logger.activity_table
+        example_q = (
+            select(activity_table)
+            .where(
+                activity_table.c.table_name == "users",
+                activity_table.c.changed_data.op('?')('last_login_dt')
+            )
+        )
+        """
+        return Table(
+            "activity",
+            MetaData(),
+            Column("id", Integer, primary_key=True),
+            Column("table_name", String),
+            Column("verb", String),
+            Column("old_data", JSONB),
+            Column("changed_data", JSONB),
+            schema=self.schema,
         )
 
     @contextmanager
@@ -259,14 +262,14 @@ class AuditLogger(object):
             or orm_execute_state.is_update
             or orm_execute_state.is_delete
         )
-        affects_versioned_table = any(
-            m.local_table in self.versioned_tables for m in orm_execute_state.all_mappers
+        affects_audit_logged_table = any(
+            m.local_table in self.audit_logged_tables for m in orm_execute_state.all_mappers
         )
-        if is_write and affects_versioned_table:
+        if is_write and affects_audit_logged_table:
             self.save_transaction(orm_execute_state.session)
 
     def receive_before_flush(self, session, flush_context, instances):
-        if _is_session_modified(session, self.versioned_tables):
+        if _is_session_modified(session, self.audit_logged_tables):
             self.save_transaction(session)
 
     def save_transaction(self, session):
@@ -362,19 +365,8 @@ def _activity_model_factory(base, schema_name, transaction_cls):
 
         transaction = relationship(transaction_cls, backref="activities")
 
-        @hybrid_property
-        def data(self):
-            data = self.old_data.copy() if self.old_data else {}
-            if self.changed_data:
-                data.update(self.changed_data)
-            return data
-
-        @data.expression
-        def data(cls):
-            return cls.old_data + cls.changed_data
-
         def __repr__(self):
-            return ("<{cls} table_name={table_name!r} " "id={id!r}>").format(
+            return ("<{cls} table_name={table_name!r} id={id!r}>").format(
                 cls=self.__class__.__name__, table_name=self.table_name, id=self.id
             )
 
@@ -404,27 +396,31 @@ def _default_client_addr():
     return (request and request.remote_addr) or None
 
 
-def _detect_versioned_tables(db: SQLAlchemy) -> set[Table]:
-    versioned_tables = set()
+def _detect_audit_logged_tables(db: SQLAlchemy) -> set[Table]:
+    audit_logged_tables = set()
 
     for table in db.metadata.tables.values():
-        if table.info.get("versioned") is not None:
-            versioned_tables.add(table)
+        if table.info.get("audit_logged") not in [None, False]:
+            audit_logged_tables.add(table)
 
-    return versioned_tables
+    return audit_logged_tables
 
 
-def _is_session_modified(session: Session, versioned_tables: set[Table]) -> bool:
+def _is_session_modified(session: Session, audit_logged_tables: set[Table]) -> bool:
     return any(
         _is_entity_modified(entity) or entity in session.deleted
         for entity in session
-        if entity.__table__ in versioned_tables
+        if entity.__table__ in audit_logged_tables
     )
 
 
 def _is_entity_modified(entity) -> bool:
-    versioned = entity.__table__.info.get("versioned")
-    excluded_cols = set(versioned.get("exclude", []))
+    audit_logged_info = entity.__table__.info.get("audit_logged")
+    excluded_cols = (
+        set()
+        if not isinstance(audit_logged_info, dict)
+        else set(audit_logged_info.get("exclude", []))
+    )
     modified_cols = {column.name for column in _modified_columns(entity)}
 
     return bool(modified_cols - excluded_cols)
@@ -441,7 +437,7 @@ def _modified_columns(obj):
             columns |= set(
                 prop.columns
                 if isinstance(prop, ColumnProperty)
-                else [local for local, remote in prop.local_remote_pairs]
+                else [local for local, _remote in prop.local_remote_pairs]
             )
 
     return columns

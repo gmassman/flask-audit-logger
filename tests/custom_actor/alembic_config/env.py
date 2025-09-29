@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from tests.custom_actor.flask_app import audit_logger, db
+from tests.custom_actor.flask_app import db
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -44,7 +44,6 @@ def run_migrations_online():
             connection=connection,
             target_metadata=target_metadata,
             include_schemas=True,
-            process_revision_directives=audit_logger.process_revision_directives,
         )
 
         with context.begin_transaction():

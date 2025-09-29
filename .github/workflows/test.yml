@@ -42,6 +42,11 @@ jobs:
             postgresql-version: 16
             tox: py12
 
+          - name: "Python 3.13"
+            python: "3.13"
+            postgresql-version: 16
+            tox: py13
+
     steps:
       - uses: actions/checkout@v4
 

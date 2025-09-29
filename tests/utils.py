@@ -1,6 +1,6 @@
-from argparse import Namespace
 import os
 import shutil
+from argparse import Namespace
 from contextlib import contextmanager, redirect_stdout
 from io import StringIO
 from pathlib import Path

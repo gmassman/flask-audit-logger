@@ -17,6 +17,6 @@ class TestAuditLoggerCustomActor:
         assert activity.table_name == "article"
         assert activity.verb == "insert"
         assert activity.old_data == {}
-        assert activity.data == activity.changed_data == resp.json
+        assert activity.changed_data == resp.json
         assert activity.transaction.actor_id == superuser.id
         assert activity.transaction.actor == superuser

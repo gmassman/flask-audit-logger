@@ -26,10 +26,6 @@ class TestAuditLoggerAlembicHooks:
             "op.init_audit_logger_function('get_setting(setting text, fallback text)')" in upgrade
         )
         assert "op.init_audit_logger_function('jsonb_subtract(arg1 jsonb, arg2 jsonb)')" in upgrade
-        assert (
-            "op.init_audit_logger_function('jsonb_change_key_name(data jsonb, old_key text, new_key text)')"
-            in upgrade
-        )
         assert "op.init_audit_logger_function('create_activity()')" in upgrade
         assert "op.init_audit_logger_triggers('article', excluded_columns=['created'])" in upgrade
         assert (
@@ -40,10 +36,6 @@ class TestAuditLoggerAlembicHooks:
         assert "op.remove_audit_logger_triggers('user')" in downgrade
         assert "op.remove_audit_logger_triggers('article')" in downgrade
         assert "op.remove_audit_logger_function('create_activity()')" in downgrade
-        assert (
-            "op.remove_audit_logger_function('jsonb_change_key_name(data jsonb, old_key text, new_key text)')"
-            in downgrade
-        )
         assert (
             "op.remove_audit_logger_function('jsonb_subtract(arg1 jsonb, arg2 jsonb)')"
             in downgrade

@@ -24,7 +24,7 @@ db = SQLAlchemy(model_class=Base)
 
 class User(db.Model):
     __tablename__ = "user"
-    __table_args__ = ({"info": {"versioned": {}}},)
+    __table_args__ = ({"info": {"audit_logged": {}}},)
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     age: Mapped[Optional[int]] = mapped_column(default=None)
@@ -32,7 +32,7 @@ class User(db.Model):
 
 class Article(db.Model):
     __tablename__ = "article"
-    __table_args__ = ({"info": {"versioned": {}}},)
+    __table_args__ = ({"info": {"audit_logged": {}}},)
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
 

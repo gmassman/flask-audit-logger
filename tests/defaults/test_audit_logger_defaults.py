@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, insert, or_, select
 
 from tests.defaults.flask_app import AuditLogActivity, User, db
 
@@ -59,18 +59,16 @@ class TestAuditLoggerDefaults:
         activity.table_name = "user"
         assert repr(activity) == "<AuditLogActivity table_name='user' id=3>"
 
-    def test_data_expression_sql(self):
-        assert str(AuditLogActivity.data.expression) == (
-            "activity.old_data || activity.changed_data"
-        )
-
     def test_data_expression(self, user):
         user.name = "Luke"
         db.session.commit()
         activities = db.session.scalars(
             select(AuditLogActivity).where(
                 AuditLogActivity.table_name == "user",
-                AuditLogActivity.data["id"].astext == str(user.id),
+                or_(
+                    AuditLogActivity.old_data["id"].astext == str(user.id),
+                    AuditLogActivity.changed_data["id"].astext == str(user.id),
+                ),
             )
         ).all()
         assert len(activities) == 2

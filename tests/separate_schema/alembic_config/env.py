@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from tests.separate_schema.flask_app import audit_logger, db
+from tests.separate_schema.flask_app import db
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -17,7 +17,6 @@ target_metadata = db.metadata
 
 
 def process_revision_directives(context, revision, directives):
-    audit_logger.process_revision_directives(context, revision, directives)
     if getattr(config.cmd_opts, "autogenerate", False):
         script = directives[0]
         if script.upgrade_ops.is_empty():

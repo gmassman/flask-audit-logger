@@ -32,7 +32,7 @@ db = SQLAlchemy()
 
 class User(db.Model):
     __tablename__ = "users"
-    __table_args__ = ({"info": {"versioned": {}}},)
+    __table_args__ = ({"info": {"audit_logged": True}},)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, auto_increment=True)
     name: Mapped[str]
 
@@ -41,26 +41,8 @@ class User(db.Model):
 audit_logger = AuditLogger(db)
 ```
 
-Identify the tables you want audited by adding `{"info": {"versioned": {}}}` to a model's `__table_args__`.
-The `"versioned"` key determines which tables get database triggers.
-
-Next, configure `migrations/env.py` so the AuditLogger can rewrite migration files.
-This assumes you have already initialized your project to handle database migrations with Alembic.
-
-```python
-from alembic import context
-from app.models import audit_logger
-
-def run_migrations_online():
-    # ...
-    context.configure(
-        # ...
-        process_revision_directives=audit_logger.process_revision_directives,
-    )
-```
-
-There's typically a lot going on in the `env.py` file.
-You may need to call `audit_logger.process_revision_directives()` inside an existing function.
+Identify the tables you want audited by adding `{"info": {"audit_logged": True}}` to a model's `__table_args__`.
+The `"audit_logged"` key determines which tables get database triggers.
 
 Finally, run the migration which will create audit tables, functions, and triggers.
 Here I'm using [Flask-Migrate](https://flask-migrate.readthedocs.io/en/latest/), but you can use Alembic directly if you wish.
@@ -70,10 +52,18 @@ flask db migrate -m 'setup audit_logger'
 flask db upgrade
 ```
 
-If you need an audit trail for another table in the future, add `{"info": {"versioned": {}}` to the `__table_args__` tuple.
-When you generate the next migration, the newly versioned table will be detected and the correct triggers will get created.
+If you need an audit trail for another table in the future, add `{"info": {"audit_logged": True}` to the `__table_args__` tuple.
+When you generate the next migration, the newly audit logger tracked table will be detected and the correct triggers will get created.
 
 ## Features
+
+```python
+audit_logger = AuditLogger(
+  get_actor_id=...  # callback to get current user, defaults to flask_login.current_user
+  schema=...        # schema for activity and transaction tables, defaults to "public"
+  actor_cls=...     # User model name as a string, required if not "User"
+)
+```
 
 ### Determining actor_id
 
@@ -107,7 +97,6 @@ def run_migrations_online():
     context.configure(
         # ...
         include_schemas=True,  # required for alembic to manage more than the 'public' schema
-        process_revision_directives=audit_logger.process_revision_directives,
     )
 ```
 
@@ -142,12 +131,13 @@ print(activity.transaction.actor)
 
 You may want to ignore version tracking on specific database columns.
 This can be done by adding `"exclude"` with a list of column names to `__table_args__`.
+In this case replace `{"audit_logged": True}` with your configuration dict.
 
 ```python
 # app/models.py
 class User(db.Model):
     __tablename__ = "users"
-    __table_args__ = ({"info": {"versioned": {"exclude": ["hair_color"]}}},)
+    __table_args__ = ({"info": {"audit_logged": {"exclude": ["hair_color"]}}},)
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, auto_increment=True)
     name: Mapped[str]
     hair_color: Mapped[str]
@@ -179,20 +169,23 @@ Create a virtualenv with the python version specified in specified in .tool-vers
 
 ```bash
 asdf install
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.dev
+uv sync --dev
 ```
 
 Next, create a .envrc with test database credentials then run the tests.
 
 ```bash
 direnv edit .
-> FLASK_AUDIT_LOGGER_TEST_USER=garrett  # use whatever postgres user you prefer
-> FLASK_AUDIT_LOGGER_TEST_DB=flask_audit_logger_test
+> export FLASK_AUDIT_LOGGER_TEST_USER=garrett  # use whatever postgres user you prefer
+> export FLASK_AUDIT_LOGGER_TEST_DB=flask_audit_logger_test
 
 createdb $FLASK_AUDIT_LOGGER_TEST_DB
+
+# Run a subset of the test suite using default settings
 pytest tests/defaults
+
+# Run the entire test suite, including linting checks
+tox
 ```
 
 Note that multiple folders exist in the test module.
@@ -200,4 +193,3 @@ Each tests a slightly different flask_app configuration.
 Use the `defaults` folder for generic tests.
 Add tests to `custom_actor` when you want to use a separate User model to track changes.
 Add tests to `separate_schema` when you want tables to exist in the non-public schema.
-
